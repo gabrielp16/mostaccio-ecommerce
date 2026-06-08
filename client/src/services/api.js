@@ -20,6 +20,11 @@ export async function getProducts() {
   return data
 }
 
+export async function getProductById(id) {
+  const { data } = await api.get(`/products/${id}`)
+  return data
+}
+
 export async function createOrder(payload) {
   const { data } = await api.post('/orders', payload)
   return data
@@ -115,4 +120,23 @@ export async function updateAdminRole(id, payload) {
 
 export async function deleteAdminRole(id) {
   await api.delete(`/admin/roles/${id}`)
+}
+
+export async function getAdminPermissions() {
+  const { data } = await api.get('/admin/permissions')
+  return data
+}
+
+export async function createAdminPermission(payload) {
+  const { data } = await api.post('/admin/permissions', payload)
+  return data
+}
+
+export async function updateAdminPermission(id, payload) {
+  const { data } = await api.patch(`/admin/permissions/${id}`, payload)
+  return data
+}
+
+export async function deleteAdminPermission(id) {
+  await api.delete(`/admin/permissions/${id}`)
 }

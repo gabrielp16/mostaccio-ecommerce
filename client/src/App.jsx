@@ -4,11 +4,16 @@ import ProtectedAdminRoute from './components/ProtectedAdminRoute.jsx'
 import TopNav from './components/TopNav.jsx'
 import AdminPage from './pages/AdminPage.jsx'
 import AdminOrderDetailPage from './pages/AdminOrderDetailPage.jsx'
+import AdminOrdersPage from './pages/AdminOrdersPage.jsx'
+import AdminPermissionsPage from './pages/AdminPermissionsPage.jsx'
+import AdminProductsPage from './pages/AdminProductsPage.jsx'
 import AdminRolesPage from './pages/AdminRolesPage.jsx'
 import AdminUsersPage from './pages/AdminUsersPage.jsx'
 import CheckoutPage from './pages/CheckoutPage.jsx'
+import { ADMIN_ENTRY_PERMISSIONS } from './config/adminModules.js'
 import HomePage from './pages/HomePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
+import ProductDetailPage from './pages/ProductDetailPage.jsx'
 import ShopPage from './pages/ShopPage.jsx'
 
 function App() {
@@ -19,15 +24,30 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/shop" element={<ShopPage />} />
+          <Route path="/shop/:productId" element={<ProductDetailPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route
             path="/admin"
             element={
-              <ProtectedAdminRoute
-                requiredPermission={['products:read', 'orders:read', 'users:read', 'roles:read']}
-              >
+              <ProtectedAdminRoute requiredPermission={ADMIN_ENTRY_PERMISSIONS}>
                 <AdminPage />
+              </ProtectedAdminRoute>
+            }
+          />
+          <Route
+            path="/admin/products"
+            element={
+              <ProtectedAdminRoute requiredPermission="products:read">
+                <AdminProductsPage />
+              </ProtectedAdminRoute>
+            }
+          />
+          <Route
+            path="/admin/orders"
+            element={
+              <ProtectedAdminRoute requiredPermission="orders:read">
+                <AdminOrdersPage />
               </ProtectedAdminRoute>
             }
           />
@@ -52,6 +72,14 @@ function App() {
             element={
               <ProtectedAdminRoute requiredPermission="roles:read">
                 <AdminRolesPage />
+              </ProtectedAdminRoute>
+            }
+          />
+          <Route
+            path="/admin/permissions"
+            element={
+              <ProtectedAdminRoute requiredPermission={['permissions:read', 'roles:read']}>
+                <AdminPermissionsPage />
               </ProtectedAdminRoute>
             }
           />

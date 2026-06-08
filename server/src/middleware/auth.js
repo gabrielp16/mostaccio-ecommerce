@@ -34,4 +34,17 @@ function requirePermission(permission) {
   }
 }
 
-module.exports = { requireAuth, requireAdmin, requirePermission }
+function requireAnyPermission(requiredPermissions = []) {
+  return (req, res, next) => {
+    const permissions = req.user?.permissions || []
+    const hasAnyPermission = requiredPermissions.some((permission) => permissions.includes(permission))
+
+    if (!hasAnyPermission) {
+      return res.status(403).json({ message: 'Permisos insuficientes' })
+    }
+
+    return next()
+  }
+}
+
+module.exports = { requireAuth, requireAdmin, requirePermission, requireAnyPermission }

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose')
 
-const roleSchema = new mongoose.Schema(
+const permissionSchema = new mongoose.Schema(
   {
     key: {
       type: String,
@@ -8,16 +8,13 @@ const roleSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      match: /^[a-z][a-z0-9_]*$/,
+      match: /^[a-z]+:[a-z]+$/,
     },
     name: { type: String, required: true, trim: true },
-    permissions: {
-      type: [String],
-      default: [],
-    },
+    description: { type: String, default: '', trim: true },
     isSystem: { type: Boolean, default: false },
   },
   { timestamps: true },
 )
 
-module.exports = mongoose.model('Role', roleSchema)
+module.exports = mongoose.model('Permission', permissionSchema)

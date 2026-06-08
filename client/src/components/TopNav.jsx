@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
+import { ADMIN_ENTRY_PERMISSIONS } from '../config/adminModules.js'
 import { useCart } from '../context/CartContext.jsx'
 
 function TopNav() {
@@ -7,11 +8,7 @@ function TopNav() {
   const { user, isAdmin, isAuthenticated, logout } = useAuth()
   const canAccessAdmin =
     isAdmin ||
-    Boolean(
-      user?.permissions?.some((permission) =>
-        ['products:read', 'orders:read', 'users:read', 'roles:read'].includes(permission),
-      ),
-    )
+    Boolean(user?.permissions?.some((permission) => ADMIN_ENTRY_PERMISSIONS.includes(permission)))
 
   return (
     <header className="topnav sticky-top">

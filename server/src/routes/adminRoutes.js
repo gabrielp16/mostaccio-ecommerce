@@ -1,11 +1,12 @@
 const bcrypt = require('bcryptjs')
 const express = require('express')
-const { requireAuth, requirePermission } = require('../middleware/auth')
+const { requireAnyPermission, requireAuth, requirePermission } = require('../middleware/auth')
 const Order = require('../models/Order')
+const Permission = require('../models/Permission')
 const Product = require('../models/Product')
 const Role = require('../models/Role')
 const User = require('../models/User')
-const { isValidPermissions } = require('../config/rbac')
+const { isValidPermissions } = require('../services/rbacService')
 
 const router = express.Router()
 
@@ -84,14 +85,24 @@ router.get('/products', requirePermission('products:read'), async (_req, res) =>
 
 router.post('/products', requirePermission('products:create'), async (req, res) => {
   try {
-    const { title, description, category, image, price, stock } = req.body
+    const { title, description, details = '', characteristics = [], category, image, price, stock } = req.body
     if (!title || !description || !category || !image || price == null) {
       return res.status(400).json({ message: 'Datos de producto incompletos' })
     }
 
+    if (!Array.isArray(characteristics)) {
+      return res.status(400).json({ message: 'Caracteristicas invalidas' })
+    }
+
+    const normalizedCharacteristics = characteristics
+      .map((item) => String(item).trim())
+      .filter(Boolean)
+
     const product = await Product.create({
       title,
       description,
+      details,
+      characteristics: normalizedCharacteristics,
       category,
       image,
       price,
@@ -262,7 +273,7 @@ router.post('/roles', requirePermission('roles:create'), async (req, res) => {
       return res.status(400).json({ message: 'Key y nombre son requeridos' })
     }
 
-    if (!Array.isArray(permissions) || !isValidPermissions(permissions)) {
+    if (!Array.isArray(permissions) || !(await isValidPermissions(permissions))) {
       return res.status(400).json({ message: 'Permisos invalidos' })
     }
 
@@ -292,7 +303,7 @@ router.patch('/roles/:id', requirePermission('roles:update'), async (req, res) =
     }
 
     if (permissions != null) {
-      if (!Array.isArray(permissions) || !isValidPermissions(permissions)) {
+      if (!Array.isArray(permissions) || !(await isValidPermissions(permissions))) {
         return res.status(400).json({ message: 'Permisos invalidos' })
       }
       role.permissions = permissions
@@ -325,6 +336,90 @@ router.delete('/roles/:id', requirePermission('roles:delete'), async (req, res) 
     return res.status(204).send()
   } catch {
     return res.status(500).json({ message: 'No se pudo eliminar el rol' })
+  }
+})
+
+router.get('/permissions', requireAnyPermission(['permissions:read', 'roles:read']), async (_req, res) => {
+  try {
+    const permissions = await Permission.find().sort({ key: 1 })
+    return res.json(permissions)
+  } catch {
+    return res.status(500).json({ message: 'No se pudieron obtener los permisos' })
+  }
+})
+
+router.post('/permissions', requireAnyPermission(['permissions:create', 'roles:create']), async (req, res) => {
+  try {
+    const { key, name, description = '' } = req.body
+
+    if (!key || !name) {
+      return res.status(400).json({ message: 'Key y nombre son requeridos' })
+    }
+
+    const normalizedKey = key.toLowerCase().trim()
+    const keyPattern = /^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*$/
+    if (!keyPattern.test(normalizedKey)) {
+      return res.status(400).json({ message: 'Key invalida. Usa formato modulo:accion' })
+    }
+
+    const permission = await Permission.create({
+      key: normalizedKey,
+      name: name.trim(),
+      description: String(description || '').trim(),
+      isSystem: false,
+    })
+
+    return res.status(201).json(permission)
+  } catch {
+    return res.status(500).json({ message: 'No se pudo crear el permiso' })
+  }
+})
+
+router.patch('/permissions/:id', requireAnyPermission(['permissions:update', 'roles:update']), async (req, res) => {
+  try {
+    const { name, description } = req.body
+    const permission = await Permission.findById(req.params.id)
+
+    if (!permission) {
+      return res.status(404).json({ message: 'Permiso no encontrado' })
+    }
+
+    if (name != null) {
+      permission.name = String(name).trim()
+    }
+
+    if (description != null) {
+      permission.description = String(description).trim()
+    }
+
+    await permission.save()
+    return res.json(permission)
+  } catch {
+    return res.status(500).json({ message: 'No se pudo actualizar el permiso' })
+  }
+})
+
+router.delete('/permissions/:id', requireAnyPermission(['permissions:delete', 'roles:delete']), async (req, res) => {
+  try {
+    const permission = await Permission.findById(req.params.id)
+
+    if (!permission) {
+      return res.status(404).json({ message: 'Permiso no encontrado' })
+    }
+
+    if (permission.isSystem) {
+      return res.status(400).json({ message: 'No se puede eliminar un permiso del sistema' })
+    }
+
+    const rolesUsingPermission = await Role.countDocuments({ permissions: permission.key })
+    if (rolesUsingPermission > 0) {
+      return res.status(400).json({ message: 'No se puede eliminar un permiso en uso por roles' })
+    }
+
+    await Permission.findByIdAndDelete(req.params.id)
+    return res.status(204).send()
+  } catch {
+    return res.status(500).json({ message: 'No se pudo eliminar el permiso' })
   }
 })
 

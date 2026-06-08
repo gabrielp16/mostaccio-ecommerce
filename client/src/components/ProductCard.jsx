@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext.jsx'
 
 function ProductCard({ product }) {
@@ -18,9 +19,14 @@ function ProductCard({ product }) {
         </div>
         <p className="text-muted small mb-2">{product.category}</p>
         <p className="small flex-grow-1">{product.description}</p>
-        <button className="btn btn-dark mt-3" onClick={() => addToCart(product)}>
-          Agregar al carrito
-        </button>
+        <div className="d-flex gap-2 mt-3">
+          <button className="btn btn-dark" onClick={() => addToCart(product)}>
+            Agregar al carrito
+          </button>
+          <Link to={`/shop/${product._id}`} className="btn btn-outline-dark">
+            Ver detalle
+          </Link>
+        </div>
       </div>
     </article>
   )

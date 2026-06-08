@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
+import Snackbar from '../components/Snackbar.jsx'
+import { useSnackbar } from '../hooks/useSnackbar.js'
 
 function LoginPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
+  const { snackbar, showSnackbar, closeSnackbar } = useSnackbar()
 
   const [form, setForm] = useState({ email: '', password: '' })
-  const [feedback, setFeedback] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const handleChange = (event) => {
@@ -17,7 +19,7 @@ function LoginPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-    setFeedback('')
+    closeSnackbar()
     setSubmitting(true)
 
     try {
@@ -28,7 +30,7 @@ function LoginPage() {
       }
       navigate('/')
     } catch {
-      setFeedback('No se pudo iniciar sesion. Verifica tus credenciales.')
+      showSnackbar('No se pudo iniciar sesion. Verifica tus credenciales.', { variant: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -65,7 +67,15 @@ function LoginPage() {
             </button>
           </form>
 
-          {feedback && <p className="small fw-semibold mt-3 mb-0">{feedback}</p>}
+          <Snackbar
+            open={snackbar.open}
+            mode="toast"
+            title={snackbar.title}
+            variant={snackbar.variant}
+            message={snackbar.message}
+            autoHideDuration={snackbar.autoHideDuration}
+            onClose={closeSnackbar}
+          />
 
           <div className="small text-muted mt-3 mb-0">
             <p className="mb-1">Administrador: admin@motaccio.local / admin12345</p>

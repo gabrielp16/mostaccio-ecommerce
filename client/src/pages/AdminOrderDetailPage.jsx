@@ -1,29 +1,34 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import AdminLayout from '../components/AdminLayout.jsx'
 import OrderStatusBadge, {
   ORDER_STATUS_OPTIONS,
   getOrderStatusLabel,
 } from '../components/OrderStatusBadge.jsx'
+import Snackbar from '../components/Snackbar.jsx'
+import { useSnackbar } from '../hooks/useSnackbar.js'
 import { getAdminOrderById, updateAdminOrderStatus } from '../services/api.js'
 
 function AdminOrderDetailPage() {
   const { orderId } = useParams()
+  const { snackbar, showSnackbar, closeSnackbar } = useSnackbar()
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [feedback, setFeedback] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('pending')
   const [savingStatus, setSavingStatus] = useState(false)
 
   useEffect(() => {
     async function loadOrder() {
       setLoading(true)
-      setFeedback('')
+      closeSnackbar()
+      setLoadError('')
       try {
         const data = await getAdminOrderById(orderId)
         setOrder(data)
         setSelectedStatus(data.status)
       } catch {
-        setFeedback('No se pudo cargar el detalle del pedido.')
+        setLoadError('No se pudo cargar el detalle del pedido.')
       } finally {
         setLoading(false)
       }
@@ -38,14 +43,14 @@ function AdminOrderDetailPage() {
     }
 
     setSavingStatus(true)
-    setFeedback('')
+    closeSnackbar()
 
     try {
       const updatedOrder = await updateAdminOrderStatus(order._id, selectedStatus)
       setOrder(updatedOrder)
-      setFeedback('Estado actualizado correctamente.')
+      showSnackbar('Estado actualizado correctamente.', { variant: 'success' })
     } catch {
-      setFeedback('No se pudo actualizar el estado del pedido.')
+      showSnackbar('No se pudo actualizar el estado del pedido.', { variant: 'error' })
     } finally {
       setSavingStatus(false)
     }
@@ -53,36 +58,41 @@ function AdminOrderDetailPage() {
 
   if (loading) {
     return (
-      <section className="py-5">
-        <div className="container">
+      <AdminLayout title="Detalle de Pedido">
           <p>Cargando detalle del pedido...</p>
-        </div>
-      </section>
+      </AdminLayout>
     )
   }
 
   if (!order) {
     return (
-      <section className="py-5">
-        <div className="container">
-          <p className="mb-3">{feedback || 'Pedido no encontrado.'}</p>
-          <Link to="/admin" className="btn btn-outline-dark">
-            Volver al panel
+      <AdminLayout title="Detalle de Pedido">
+          <p className="mb-3">{loadError || 'Pedido no encontrado.'}</p>
+          <Link to="/admin/orders" className="btn btn-outline-dark">
+            Volver a pedidos
           </Link>
-        </div>
-      </section>
+      </AdminLayout>
     )
   }
 
   return (
-    <section className="py-5">
-      <div className="container">
-        <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-          <h1 className="section-title m-0">Detalle de Pedido</h1>
-          <Link to="/admin" className="btn btn-outline-dark">
-            Volver al panel
-          </Link>
-        </div>
+    <AdminLayout
+      title="Detalle de Pedido"
+      actions={
+        <Link to="/admin/orders" className="btn btn-outline-dark">
+          Volver a pedidos
+        </Link>
+      }
+    >
+        <Snackbar
+          open={snackbar.open}
+          mode="toast"
+          title={snackbar.title}
+          variant={snackbar.variant}
+          message={snackbar.message}
+          autoHideDuration={snackbar.autoHideDuration}
+          onClose={closeSnackbar}
+        />
 
         <div className="floating-card p-4 mb-4">
           <p className="mb-1">
@@ -123,8 +133,6 @@ function AdminOrderDetailPage() {
               {savingStatus ? 'Guardando...' : 'Actualizar estado'}
             </button>
           </div>
-
-          {feedback && <p className="small fw-semibold mt-2 mb-0">{feedback}</p>}
         </div>
 
         <div className="floating-card p-4">
@@ -158,8 +166,7 @@ function AdminOrderDetailPage() {
             <p className="mb-0 fw-bold">Total: ${order.total.toFixed(2)}</p>
           </div>
         </div>
-      </div>
-    </section>
+    </AdminLayout>
   )
 }
 

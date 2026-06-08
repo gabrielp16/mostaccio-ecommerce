@@ -1,29 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
+import AdminLayout from '../components/AdminLayout.jsx'
+import Snackbar from '../components/Snackbar.jsx'
+import { useSnackbar } from '../hooks/useSnackbar.js'
 import {
   createAdminRole,
   deleteAdminRole,
+  getAdminPermissions,
   getAdminRoles,
   updateAdminRole,
 } from '../services/api.js'
-
-const PERMISSION_OPTIONS = [
-  'products:read',
-  'products:create',
-  'products:update',
-  'products:delete',
-  'orders:read',
-  'orders:update',
-  'users:read',
-  'users:create',
-  'users:update',
-  'users:delete',
-  'roles:read',
-  'roles:create',
-  'roles:update',
-  'roles:delete',
-]
 
 const initialForm = {
   key: '',
@@ -37,23 +24,42 @@ function AdminRolesPage() {
   const canCreate = hasPermission('roles:create')
   const canUpdate = hasPermission('roles:update')
   const canDelete = hasPermission('roles:delete')
+  const canReadPermissions = hasPermission('permissions:read') || hasPermission('roles:read')
 
   const [roles, setRoles] = useState([])
-  const [form, setForm] = useState(initialForm)
-  const [editingId, setEditingId] = useState('')
+  const [permissionsCatalog, setPermissionsCatalog] = useState([])
+  const [createForm, setCreateForm] = useState(initialForm)
+  const [editForm, setEditForm] = useState(initialForm)
+  const [editingRoleId, setEditingRoleId] = useState('')
   const [editingIsSystem, setEditingIsSystem] = useState(false)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [feedback, setFeedback] = useState('')
+  const [savingCreate, setSavingCreate] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [deleteCandidate, setDeleteCandidate] = useState(null)
+  const { snackbar, showSnackbar, closeSnackbar } = useSnackbar()
+
+  const permissionOptions = useMemo(
+    () => permissionsCatalog.map((permission) => permission.key),
+    [permissionsCatalog],
+  )
 
   const loadRoles = async () => {
     setLoading(true)
-    setFeedback('')
+    closeSnackbar()
     try {
-      const adminRoles = await getAdminRoles()
+      const [adminRoles, permissions] = await Promise.all([
+        getAdminRoles(),
+        canReadPermissions ? getAdminPermissions() : Promise.resolve([]),
+      ])
+
       setRoles(adminRoles)
+      setPermissionsCatalog(permissions)
     } catch (error) {
-      setFeedback(error?.response?.data?.message || 'No se pudieron cargar los roles.')
+      showSnackbar(error?.response?.data?.message || 'No se pudieron cargar los roles.', {
+        variant: 'error',
+      })
     } finally {
       setLoading(false)
     }
@@ -61,16 +67,20 @@ function AdminRolesPage() {
 
   useEffect(() => {
     loadRoles()
-  }, [])
+  }, [canReadPermissions])
 
-  const resetForm = () => {
-    setForm(initialForm)
-    setEditingId('')
+  const resetCreateForm = () => {
+    setCreateForm(initialForm)
+  }
+
+  const resetEditForm = () => {
+    setEditForm(initialForm)
+    setEditingRoleId('')
     setEditingIsSystem(false)
   }
 
-  const togglePermission = (permission) => {
-    setForm((current) => {
+  const toggleCreatePermission = (permission) => {
+    setCreateForm((current) => {
       const exists = current.permissions.includes(permission)
       return {
         ...current,
@@ -81,165 +91,308 @@ function AdminRolesPage() {
     })
   }
 
+  const toggleEditPermission = (permission) => {
+    setEditForm((current) => {
+      const exists = current.permissions.includes(permission)
+      return {
+        ...current,
+        permissions: exists
+          ? current.permissions.filter((item) => item !== permission)
+          : [...current.permissions, permission],
+      }
+    })
+  }
+
+  const openCreateModal = () => {
+    if (!canCreate) {
+      showSnackbar('No tienes permisos para crear roles.', { variant: 'warning' })
+      return
+    }
+
+    resetCreateForm()
+    setIsCreateModalOpen(true)
+  }
+
+  const closeCreateModal = () => {
+    setIsCreateModalOpen(false)
+    resetCreateForm()
+  }
+
   const handleEdit = (role) => {
-    setEditingId(role._id)
+    setEditingRoleId(role._id)
     setEditingIsSystem(Boolean(role.isSystem))
-    setForm({
+    setEditForm({
       key: role.key,
       name: role.name,
       permissions: role.permissions || [],
     })
-    setFeedback('')
+    setIsEditModalOpen(true)
+    closeSnackbar()
   }
 
-  const handleChange = (event) => {
+  const closeEditModal = () => {
+    setIsEditModalOpen(false)
+    resetEditForm()
+  }
+
+  const handleCreateChange = (event) => {
     const { name, value } = event.target
-    setForm((current) => ({ ...current, [name]: value }))
+    setCreateForm((current) => ({ ...current, [name]: value }))
   }
 
-  const handleSubmit = async (event) => {
+  const handleEditChange = (event) => {
+    const { name, value } = event.target
+    setEditForm((current) => ({ ...current, [name]: value }))
+  }
+
+  const handleCreateSubmit = async (event) => {
     event.preventDefault()
 
-    if ((!editingId && !canCreate) || (editingId && !canUpdate)) {
-      setFeedback('No tienes permisos para guardar roles.')
+    if (!canCreate) {
+      showSnackbar('No tienes permisos para crear roles.', { variant: 'warning' })
       return
     }
 
-    setSaving(true)
-    setFeedback('')
+    setSavingCreate(true)
+    closeSnackbar()
 
     try {
-      if (editingId) {
-        await updateAdminRole(editingId, {
-          name: form.name,
-          permissions: form.permissions,
-        })
-        setFeedback('Rol actualizado correctamente.')
-      } else {
-        await createAdminRole({
-          key: form.key,
-          name: form.name,
-          permissions: form.permissions,
-        })
-        setFeedback('Rol creado correctamente.')
-      }
+      await createAdminRole({
+        key: createForm.key,
+        name: createForm.name,
+        permissions: createForm.permissions,
+      })
+      showSnackbar('Rol creado correctamente.', { variant: 'success' })
 
-      resetForm()
+      closeCreateModal()
       await loadRoles()
     } catch (error) {
-      setFeedback(error?.response?.data?.message || 'No se pudo guardar el rol.')
+      showSnackbar(error?.response?.data?.message || 'No se pudo guardar el rol.', { variant: 'error' })
     } finally {
-      setSaving(false)
+      setSavingCreate(false)
     }
   }
 
-  const handleDelete = async (role) => {
+  const handleEditSubmit = async (event) => {
+    event.preventDefault()
+
+    if (!canUpdate) {
+      showSnackbar('No tienes permisos para editar roles.', { variant: 'warning' })
+      return
+    }
+
+    if (!editingRoleId) {
+      showSnackbar('No se pudo identificar el rol a editar.', { variant: 'error' })
+      return
+    }
+
+    setSavingEdit(true)
+    closeSnackbar()
+
+    try {
+      await updateAdminRole(editingRoleId, {
+        name: editForm.name,
+        permissions: editForm.permissions,
+      })
+      showSnackbar('Rol actualizado correctamente.', { variant: 'success' })
+
+      closeEditModal()
+      await loadRoles()
+    } catch (error) {
+      showSnackbar(error?.response?.data?.message || 'No se pudo guardar el rol.', { variant: 'error' })
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const askDelete = (role) => {
     if (!canDelete) {
-      setFeedback('No tienes permisos para eliminar roles.')
+      showSnackbar('No tienes permisos para eliminar roles.', { variant: 'warning' })
       return
     }
 
     if (role.isSystem) {
-      setFeedback('Los roles del sistema no se pueden eliminar.')
+      showSnackbar('Los roles del sistema no se pueden eliminar.', { variant: 'warning' })
       return
     }
 
-    const confirmed = window.confirm('Esta accion eliminara el rol. Deseas continuar?')
-    if (!confirmed) {
+    setDeleteCandidate(role)
+  }
+
+  const handleDelete = async () => {
+    if (!deleteCandidate) {
       return
     }
 
     try {
-      await deleteAdminRole(role._id)
-      setFeedback('Rol eliminado correctamente.')
+      await deleteAdminRole(deleteCandidate._id)
+      showSnackbar('Rol eliminado correctamente.', { variant: 'success' })
+      setDeleteCandidate(null)
       await loadRoles()
     } catch (error) {
-      setFeedback(error?.response?.data?.message || 'No se pudo eliminar el rol.')
+      showSnackbar(error?.response?.data?.message || 'No se pudo eliminar el rol.', { variant: 'error' })
     }
   }
 
   return (
-    <section className="py-5">
-      <div className="container">
-        <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-          <h1 className="section-title m-0">Gestion de Roles y Permisos</h1>
-          <div className="d-flex gap-2">
-            <Link to="/admin" className="btn btn-outline-dark">
-              Volver al panel
-            </Link>
-            <button className="btn btn-dark" onClick={loadRoles}>
-              Refrescar
+    <AdminLayout
+      title="Gestion de Roles"
+      actions={
+        <>
+          {canCreate && (
+            <button className="btn btn-dark" onClick={openCreateModal}>
+              Nuevo rol
             </button>
-          </div>
-        </div>
+          )}
+          {canReadPermissions && (
+            <Link className="btn btn-outline-dark" to="/admin/permissions">
+              Gestionar permisos
+            </Link>
+          )}
+          <button className="btn btn-outline-dark" onClick={loadRoles}>
+            Refrescar
+          </button>
+        </>
+      }
+    >
 
-        {feedback && <p className="small fw-semibold">{feedback}</p>}
+        <Snackbar
+          open={snackbar.open}
+          mode="toast"
+          title={snackbar.title}
+          variant={snackbar.variant}
+          message={snackbar.message}
+          autoHideDuration={snackbar.autoHideDuration}
+          onClose={closeSnackbar}
+        />
 
-        <div className="row g-4">
-          <div className="col-12 col-lg-5">
-            <div className="floating-card p-4 h-100">
-              <h2 className="h4 mb-3">{editingId ? 'Editar rol' : 'Nuevo rol'}</h2>
-              <form className="d-flex flex-column gap-2" onSubmit={handleSubmit}>
-                <input
-                  required
-                  name="key"
-                  className="form-control"
-                  placeholder="Clave (ej: marketing_manager)"
-                  value={form.key}
-                  onChange={handleChange}
-                  disabled={Boolean(editingId)}
-                />
-                <input
-                  required
-                  name="name"
-                  className="form-control"
-                  placeholder="Nombre descriptivo"
-                  value={form.name}
-                  onChange={handleChange}
-                />
+        <Snackbar
+          open={Boolean(deleteCandidate)}
+          mode="modal"
+          title="Confirmar eliminacion"
+          message="Esta accion eliminara el rol. Deseas continuar?"
+          onClose={() => setDeleteCandidate(null)}
+          actions={[
+            { label: 'Cancelar', className: 'btn btn-outline-dark', onClick: () => setDeleteCandidate(null) },
+            { label: 'Eliminar', className: 'btn btn-danger', onClick: handleDelete },
+          ]}
+        />
 
-                <div className="border rounded-3 p-3" style={{ maxHeight: '260px', overflowY: 'auto' }}>
-                  <p className="small fw-semibold mb-2">Permisos</p>
-                  <div className="d-flex flex-column gap-2">
-                    {PERMISSION_OPTIONS.map((permission) => (
-                      <label key={permission} className="form-check d-flex align-items-center gap-2 mb-0">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          checked={form.permissions.includes(permission)}
-                          onChange={() => togglePermission(permission)}
-                        />
-                        <span className="form-check-label">{permission}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+        <Snackbar
+          open={isCreateModalOpen}
+          mode="modal"
+          title="Nuevo rol"
+          onClose={closeCreateModal}
+          closeOnBackdrop={!savingCreate}
+        >
+          <form className="d-flex flex-column gap-2" onSubmit={handleCreateSubmit}>
+            <input
+              required
+              name="key"
+              className="form-control"
+              placeholder="Clave (ej: marketing_manager)"
+              value={createForm.key}
+              onChange={handleCreateChange}
+            />
+            <input
+              required
+              name="name"
+              className="form-control"
+              placeholder="Nombre descriptivo"
+              value={createForm.name}
+              onChange={handleCreateChange}
+            />
 
-                {editingIsSystem && (
-                  <p className="small text-muted mb-0">
-                    Este es un rol del sistema. Puedes modificar permisos, pero no eliminarlo.
-                  </p>
-                )}
-
-                <div className="d-flex gap-2 mt-2">
-                  <button
-                    className="btn btn-dark"
-                    type="submit"
-                    disabled={saving || (!editingId && !canCreate) || (editingId && !canUpdate)}
-                  >
-                    {saving ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Crear rol'}
-                  </button>
-                  <button className="btn btn-outline-dark" type="button" onClick={resetForm}>
-                    Limpiar
-                  </button>
-                </div>
-              </form>
+            <div className="border rounded-3 p-3" style={{ maxHeight: '260px', overflowY: 'auto' }}>
+              <p className="small fw-semibold mb-2">Permisos</p>
+              <div className="d-flex flex-column gap-2">
+                {permissionOptions.map((permission) => (
+                  <label key={`create-${permission}`} className="form-check d-flex align-items-center gap-2 mb-0">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      checked={createForm.permissions.includes(permission)}
+                      onChange={() => toggleCreatePermission(permission)}
+                    />
+                    <span className="form-check-label">{permission}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="col-12 col-lg-7">
-            <div className="floating-card p-4 h-100">
-              <h2 className="h4 mb-3">Roles existentes</h2>
+            <div className="d-flex gap-2 mt-2 justify-content-end">
+              <button className="btn btn-outline-dark" type="button" onClick={closeCreateModal} disabled={savingCreate}>
+                Cancelar
+              </button>
+              <button className="btn btn-dark" type="submit" disabled={savingCreate}>
+                {savingCreate ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </form>
+        </Snackbar>
+
+        <Snackbar
+          open={isEditModalOpen}
+          mode="modal"
+          title="Editar rol"
+          onClose={closeEditModal}
+          closeOnBackdrop={!savingEdit}
+        >
+          <form className="d-flex flex-column gap-2" onSubmit={handleEditSubmit}>
+            <input
+              name="key"
+              className="form-control"
+              value={editForm.key}
+              disabled
+              readOnly
+            />
+            <input
+              required
+              name="name"
+              className="form-control"
+              placeholder="Nombre descriptivo"
+              value={editForm.name}
+              onChange={handleEditChange}
+            />
+
+            <div className="border rounded-3 p-3" style={{ maxHeight: '260px', overflowY: 'auto' }}>
+              <p className="small fw-semibold mb-2">Permisos</p>
+              <div className="d-flex flex-column gap-2">
+                {permissionOptions.map((permission) => (
+                  <label key={`edit-${permission}`} className="form-check d-flex align-items-center gap-2 mb-0">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      checked={editForm.permissions.includes(permission)}
+                      onChange={() => toggleEditPermission(permission)}
+                    />
+                    <span className="form-check-label">{permission}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {editingIsSystem && (
+              <p className="small text-muted mb-0">
+                Este es un rol del sistema. Puedes modificar permisos, pero no eliminarlo.
+              </p>
+            )}
+
+            <div className="d-flex gap-2 mt-2 justify-content-end">
+              <button className="btn btn-outline-dark" type="button" onClick={closeEditModal} disabled={savingEdit}>
+                Cancelar
+              </button>
+              <button className="btn btn-dark" type="submit" disabled={savingEdit}>
+                {savingEdit ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+            </div>
+          </form>
+        </Snackbar>
+
+      <div className="row g-4">
+        <div className="col-12">
+          <div className="floating-card p-4 h-100">
+            <h2 className="h4 mb-3">Roles existentes</h2>
 
               {loading ? (
                 <p>Cargando roles...</p>
@@ -263,10 +416,12 @@ function AdminRolesPage() {
                         </tr>
                       ) : (
                         roles.map((role) => (
-                          <tr key={role._id}>
+                          <tr key={role._id} className="border-bottom">
                             <td>
-                              {role.name}
-                              {role.isSystem && <span className="badge text-bg-secondary">Sistema</span>}
+                              <div className="d-flex flex-column align-items-start gap-1">
+                                <span>{role.name}</span>
+                                {role.isSystem && <span className="badge text-bg-secondary">Sistema</span>}
+                              </div>
                             </td>
                             <td>{role.key}</td>
                             <td style={{ minWidth: '220px' }}>
@@ -292,7 +447,7 @@ function AdminRolesPage() {
                                 {canDelete && (
                                   <button
                                     className="btn btn-sm btn-outline-danger"
-                                    onClick={() => handleDelete(role)}
+                                    onClick={() => askDelete(role)}
                                     disabled={role.isSystem}
                                   >
                                     Eliminar
@@ -307,11 +462,10 @@ function AdminRolesPage() {
                   </table>
                 </div>
               )}
-            </div>
           </div>
         </div>
       </div>
-    </section>
+    </AdminLayout>
   )
 }
 

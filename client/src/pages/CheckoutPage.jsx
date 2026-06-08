@@ -1,15 +1,17 @@
 import { useState } from 'react'
+import Snackbar from '../components/Snackbar.jsx'
 import { useCart } from '../context/CartContext.jsx'
+import { useSnackbar } from '../hooks/useSnackbar.js'
 import { createOrder } from '../services/api.js'
 
 function CheckoutPage() {
   const { cart, totals, removeFromCart, updateQuantity, clearCart } = useCart()
+  const { snackbar, showSnackbar, closeSnackbar } = useSnackbar()
   const [customer, setCustomer] = useState({
     name: '',
     email: '',
     address: '',
   })
-  const [feedback, setFeedback] = useState('')
   const [sending, setSending] = useState(false)
 
   const handleChange = (event) => {
@@ -20,12 +22,12 @@ function CheckoutPage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     if (!cart.length) {
-      setFeedback('Tu carrito esta vacio. Agrega productos antes de comprar.')
+      showSnackbar('Tu carrito esta vacio. Agrega productos antes de comprar.', { variant: 'warning' })
       return
     }
 
     setSending(true)
-    setFeedback('')
+    closeSnackbar()
 
     try {
       const payload = {
@@ -40,10 +42,10 @@ function CheckoutPage() {
 
       const order = await createOrder(payload)
       clearCart()
-      setFeedback(`Pedido ${order.orderNumber} creado correctamente.`)
+      showSnackbar(`Pedido ${order.orderNumber} creado correctamente.`, { variant: 'success' })
       setCustomer({ name: '', email: '', address: '' })
     } catch {
-      setFeedback('No se pudo completar la compra en este momento.')
+      showSnackbar('No se pudo completar la compra en este momento.', { variant: 'error' })
     } finally {
       setSending(false)
     }
@@ -53,6 +55,16 @@ function CheckoutPage() {
     <section className="py-5">
       <div className="container">
         <h1 className="section-title mb-4">Checkout</h1>
+
+        <Snackbar
+          open={snackbar.open}
+          mode="toast"
+          title={snackbar.title}
+          variant={snackbar.variant}
+          message={snackbar.message}
+          autoHideDuration={snackbar.autoHideDuration}
+          onClose={closeSnackbar}
+        />
 
         <div className="checkout-grid">
           <div className="floating-card p-4">
@@ -148,8 +160,6 @@ function CheckoutPage() {
                 {sending ? 'Procesando...' : 'Confirmar compra'}
               </button>
             </form>
-
-            {feedback && <p className="mt-3 mb-0 small fw-semibold">{feedback}</p>}
           </div>
         </div>
       </div>

@@ -103,15 +103,31 @@ router.post('/login', async (req, res) => {
 })
 
 router.get('/me', requireAuth, async (req, res) => {
-  return res.json({
-    user: {
-      id: req.user.id,
-      email: req.user.email,
-      role: req.user.role,
-      name: req.user.name,
-      permissions: req.user.permissions || [],
-    },
-  })
+  try {
+    const user = await User.findById(req.user.id)
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' })
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({ message: 'Usuario inactivo' })
+    }
+
+    const permissions = await resolvePermissionsForRole(user.role)
+
+    return res.json({
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        permissions,
+        isActive: user.isActive,
+      },
+    })
+  } catch {
+    return res.status(500).json({ message: 'No se pudo obtener la sesion del usuario' })
+  }
 })
 
 module.exports = router

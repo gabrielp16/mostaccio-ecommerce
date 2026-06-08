@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs')
 const connectDb = require('./config/db')
 const Product = require('./models/Product')
 const User = require('./models/User')
-const { ensureDefaultRoles } = require('./services/rbacService')
+const { ensureDefaultPermissions, ensureDefaultRoles } = require('./services/rbacService')
 
 dotenv.config()
 
@@ -45,6 +45,7 @@ const products = [
 async function seedProducts() {
   try {
     await connectDb()
+    await ensureDefaultPermissions()
     await ensureDefaultRoles()
     await Product.deleteMany({})
     await Product.insertMany(products)
