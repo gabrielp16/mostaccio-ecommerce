@@ -4,6 +4,8 @@ import ProtectedAdminRoute from './components/ProtectedAdminRoute.jsx'
 import TopNav from './components/TopNav.jsx'
 import AdminPage from './pages/AdminPage.jsx'
 import AdminOrderDetailPage from './pages/AdminOrderDetailPage.jsx'
+import AdminRolesPage from './pages/AdminRolesPage.jsx'
+import AdminUsersPage from './pages/AdminUsersPage.jsx'
 import CheckoutPage from './pages/CheckoutPage.jsx'
 import HomePage from './pages/HomePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
@@ -22,7 +24,9 @@ function App() {
           <Route
             path="/admin"
             element={
-              <ProtectedAdminRoute>
+              <ProtectedAdminRoute
+                requiredPermission={['products:read', 'orders:read', 'users:read', 'roles:read']}
+              >
                 <AdminPage />
               </ProtectedAdminRoute>
             }
@@ -30,8 +34,24 @@ function App() {
           <Route
             path="/admin/orders/:orderId"
             element={
-              <ProtectedAdminRoute>
+              <ProtectedAdminRoute requiredPermission="orders:read">
                 <AdminOrderDetailPage />
+              </ProtectedAdminRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedAdminRoute requiredPermission="users:read">
+                <AdminUsersPage />
+              </ProtectedAdminRoute>
+            }
+          />
+          <Route
+            path="/admin/roles"
+            element={
+              <ProtectedAdminRoute requiredPermission="roles:read">
+                <AdminRolesPage />
               </ProtectedAdminRoute>
             }
           />

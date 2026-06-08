@@ -73,3 +73,46 @@ export async function updateAdminProduct(id, payload) {
 export async function deleteAdminProduct(id) {
   await api.delete(`/admin/products/${id}`)
 }
+
+export async function getAdminUsers() {
+  const { data } = await api.get('/admin/users')
+  return data
+}
+
+export async function getAdminUserById(id) {
+  const { data } = await api.get(`/admin/users/${id}`)
+  return data
+}
+
+export async function createAdminUser(payload) {
+  const { data } = await api.post('/admin/users', payload)
+  return data
+}
+
+export async function updateAdminUser(id, payload) {
+  const { data } = await api.patch(`/admin/users/${id}`, payload)
+  return data
+}
+
+export async function deleteAdminUser(id) {
+  await api.delete(`/admin/users/${id}`)
+}
+
+export async function getAdminRoles() {
+  const { data } = await api.get('/admin/roles')
+  return data
+}
+
+export async function createAdminRole(payload) {
+  const { data } = await api.post('/admin/roles', payload)
+  return data
+}
+
+export async function updateAdminRole(id, payload) {
+  const { data } = await api.patch(`/admin/roles/${id}`, payload)
+  return data
+}
+
+export async function deleteAdminRole(id) {
+  await api.delete(`/admin/roles/${id}`)
+}

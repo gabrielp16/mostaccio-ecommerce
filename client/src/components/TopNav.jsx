@@ -5,13 +5,20 @@ import { useCart } from '../context/CartContext.jsx'
 function TopNav() {
   const { totals } = useCart()
   const { user, isAdmin, isAuthenticated, logout } = useAuth()
+  const canAccessAdmin =
+    isAdmin ||
+    Boolean(
+      user?.permissions?.some((permission) =>
+        ['products:read', 'orders:read', 'users:read', 'roles:read'].includes(permission),
+      ),
+    )
 
   return (
     <header className="topnav sticky-top">
       <nav className="navbar py-3">
         <div className="container">
           <Link to="/" className="navbar-brand brand-wordmark text-dark">
-            MOTACCIO BARBER CLUB
+            mostaccio BARBER CLUB
           </Link>
 
           <div className="d-flex flex-wrap align-items-center gap-2 ms-auto">
@@ -25,7 +32,7 @@ function TopNav() {
               Carrito ({totals.itemCount})
             </NavLink>
 
-            {isAdmin && (
+            {canAccessAdmin && (
               <NavLink className="btn btn-sm btn-warning" to="/admin">
                 Admin
               </NavLink>

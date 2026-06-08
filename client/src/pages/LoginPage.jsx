@@ -67,9 +67,12 @@ function LoginPage() {
 
           {feedback && <p className="small fw-semibold mt-3 mb-0">{feedback}</p>}
 
-          <p className="small text-muted mt-3 mb-0">
-            Admin demo: admin@motaccio.local / admin12345
-          </p>
+          <div className="small text-muted mt-3 mb-0">
+            <p className="mb-1">Administrador: admin@motaccio.local / admin12345</p>
+            <p className="mb-1">Empleado: empleado@motaccio.local / empleado12345</p>
+            <p className="mb-1">Contador: contador@motaccio.local / contador12345</p>
+            <p className="mb-0">Supervisor: supervisor@motaccio.local / supervisor12345</p>
+          </div>
         </div>
       </div>
     </section>
