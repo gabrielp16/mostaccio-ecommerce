@@ -1,0 +1,44 @@
+const express = require('express')
+const Order = require('../models/Order')
+
+const router = express.Router()
+
+function calcTotals(items) {
+  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0)
+  const shipping = subtotal > 0 ? 9.9 : 0
+  return {
+    subtotal,
+    shipping,
+    total: subtotal + shipping,
+  }
+}
+
+router.post('/', async (req, res) => {
+  try {
+    const { customer, items } = req.body
+
+    if (!customer?.name || !customer?.email || !customer?.address) {
+      return res.status(400).json({ message: 'Datos de cliente incompletos' })
+    }
+
+    if (!Array.isArray(items) || !items.length) {
+      return res.status(400).json({ message: 'El pedido no tiene items' })
+    }
+
+    const totals = calcTotals(items)
+    const orderNumber = `ORD-${Date.now()}`
+
+    const order = await Order.create({
+      orderNumber,
+      customer,
+      items,
+      ...totals,
+    })
+
+    return res.status(201).json(order)
+  } catch (error) {
+    return res.status(500).json({ message: 'No se pudo crear la orden' })
+  }
+})
+
+module.exports = router
