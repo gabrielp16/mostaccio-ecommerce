@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs')
 const connectDb = require('./config/db')
 const Product = require('./models/Product')
 const User = require('./models/User')
+const { ensureDefaultRoles } = require('./services/rbacService')
 
 dotenv.config()
 
@@ -44,21 +45,58 @@ const products = [
 async function seedProducts() {
   try {
     await connectDb()
+    await ensureDefaultRoles()
     await Product.deleteMany({})
     await Product.insertMany(products)
-    const adminPassword = await bcrypt.hash('admin12345', 10)
-    await User.findOneAndUpdate(
-      { email: 'admin@motaccio.local' },
+
+    const internalUsers = [
       {
-        name: 'Admin',
-        email: 'admin@motaccio.local',
-        password: adminPassword,
+        name: 'Administrador',
+        email: 'admin@mostaccio.local',
         role: 'admin',
+        password: 'admin12345',
       },
-      { upsert: true, returnDocument: 'after' },
-    )
+      {
+        name: 'Empleado',
+        email: 'empleado@mostaccio.local',
+        role: 'employee',
+        password: 'empleado12345',
+      },
+      {
+        name: 'Contador',
+        email: 'contador@mostaccio.local',
+        role: 'accountant',
+        password: 'contador12345',
+      },
+      {
+        name: 'Supervisor',
+        email: 'supervisor@mostaccio.local',
+        role: 'supervisor',
+        password: 'supervisor12345',
+      },
+    ]
+
+    for (const internalUser of internalUsers) {
+      const passwordHash = await bcrypt.hash(internalUser.password, 10)
+      await User.findOneAndUpdate(
+        { email: internalUser.email },
+        {
+          name: internalUser.name,
+          email: internalUser.email,
+          password: passwordHash,
+          role: internalUser.role,
+          isActive: true,
+        },
+        { upsert: true, returnDocument: 'after' },
+      )
+    }
+
     console.log('Seed completado')
-    console.log('Admin creado: admin@motaccio.local / admin12345')
+    console.log('Usuarios internos creados:')
+    console.log('- admin@mostaccio.local / admin12345')
+    console.log('- empleado@mostaccio.local / empleado12345')
+    console.log('- contador@mostaccio.local / contador12345')
+    console.log('- supervisor@mostaccio.local / supervisor12345')
     process.exit(0)
   } catch (error) {
     console.error('Seed error:', error.message)

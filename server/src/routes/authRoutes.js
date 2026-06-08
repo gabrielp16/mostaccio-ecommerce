@@ -3,16 +3,18 @@ const express = require('express')
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 const { requireAuth } = require('../middleware/auth')
+const { resolvePermissionsForRole } = require('../services/rbacService')
 
 const router = express.Router()
 
-function signToken(user) {
+function signToken(user, permissions) {
   return jwt.sign(
     {
       id: user._id,
       email: user.email,
       role: user.role,
       name: user.name,
+      permissions,
     },
     process.env.JWT_SECRET || 'dev_secret_change_me',
     { expiresIn: '7d' },
@@ -41,10 +43,18 @@ router.post('/register', async (req, res) => {
       role: 'customer',
     })
 
-    const token = signToken(user)
+    const permissions = await resolvePermissionsForRole(user.role)
+    const token = signToken(user, permissions)
     return res.status(201).json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        permissions,
+        isActive: user.isActive,
+      },
     })
   } catch {
     return res.status(500).json({ message: 'No se pudo registrar el usuario' })
@@ -65,15 +75,27 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Credenciales invalidas' })
     }
 
+    if (!user.isActive) {
+      return res.status(403).json({ message: 'Usuario inactivo' })
+    }
+
     const isValidPassword = await bcrypt.compare(password, user.password)
     if (!isValidPassword) {
       return res.status(401).json({ message: 'Credenciales invalidas' })
     }
 
-    const token = signToken(user)
+    const permissions = await resolvePermissionsForRole(user.role)
+    const token = signToken(user, permissions)
     return res.json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        permissions,
+        isActive: user.isActive,
+      },
     })
   } catch {
     return res.status(500).json({ message: 'No se pudo iniciar sesion' })
@@ -87,6 +109,7 @@ router.get('/me', requireAuth, async (req, res) => {
       email: req.user.email,
       role: req.user.role,
       name: req.user.name,
+      permissions: req.user.permissions || [],
     },
   })
 })

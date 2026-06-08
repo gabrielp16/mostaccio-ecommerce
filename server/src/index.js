@@ -7,6 +7,7 @@ const authRoutes = require('./routes/authRoutes')
 const connectDb = require('./config/db')
 const orderRoutes = require('./routes/orderRoutes')
 const productRoutes = require('./routes/productRoutes')
+const { ensureDefaultRoles } = require('./services/rbacService')
 
 dotenv.config()
 
@@ -26,7 +27,8 @@ app.use('/api/products', productRoutes)
 app.use('/api/orders', orderRoutes)
 
 connectDb()
-  .then(() => {
+  .then(async () => {
+    await ensureDefaultRoles()
     app.listen(PORT, () => {
       console.log(`API escuchando en http://localhost:${PORT}`)
     })

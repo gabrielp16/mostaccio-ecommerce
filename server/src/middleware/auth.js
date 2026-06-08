@@ -24,4 +24,14 @@ function requireAdmin(req, res, next) {
   return next()
 }
 
-module.exports = { requireAuth, requireAdmin }
+function requirePermission(permission) {
+  return (req, res, next) => {
+    const permissions = req.user?.permissions || []
+    if (!permissions.includes(permission)) {
+      return res.status(403).json({ message: 'Permisos insuficientes' })
+    }
+    return next()
+  }
+}
+
+module.exports = { requireAuth, requireAdmin, requirePermission }
