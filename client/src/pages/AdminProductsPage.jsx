@@ -318,7 +318,8 @@ function AdminProductsPage() {
                   <th>Producto</th>
                   <th>Categoria</th>
                   <th>Precio</th>
-                  <th>Stock</th>
+                  <th>Disponible</th>
+                  <th>En reserva</th>
                   <th>Caracteristicas</th>
                   <th></th>
                 </tr>
@@ -326,7 +327,7 @@ function AdminProductsPage() {
               <tbody>
                 {products.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="text-muted">
+                    <td colSpan="7" className="text-muted">
                       No hay productos cargados.
                     </td>
                   </tr>
@@ -342,6 +343,7 @@ function AdminProductsPage() {
                       <td>{product.category}</td>
                       <td>${product.price.toFixed(2)}</td>
                       <td>{product.stock}</td>
+                      <td>{product.reservedStock || 0}</td>
                       <td>
                         <div className="d-flex flex-wrap gap-1">
                           {(product.characteristics || []).length === 0 ? (

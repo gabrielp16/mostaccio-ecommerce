@@ -117,8 +117,11 @@ function ProductDetailPage() {
                 )}
               </div>
 
-              <p className="small mb-4">
+              <p className="small mb-1">
                 Stock disponible: <strong>{product.stock}</strong>
+              </p>
+              <p className="small text-muted mb-4">
+                En reserva: <strong>{product.reservedStock || 0}</strong>
               </p>
 
               <div className="d-flex gap-2 mt-auto">

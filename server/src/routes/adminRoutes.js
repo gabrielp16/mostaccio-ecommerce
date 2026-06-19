@@ -6,6 +6,7 @@ const Permission = require('../models/Permission')
 const Product = require('../models/Product')
 const Role = require('../models/Role')
 const User = require('../models/User')
+const { releaseReservationForOrder, reReserveForPendingStatus } = require('../services/inventoryService')
 const { isValidPermissions } = require('../services/rbacService')
 
 const router = express.Router()
@@ -55,21 +56,42 @@ router.patch('/orders/:id/status', requirePermission('orders:update'), async (re
       return res.status(400).json({ message: 'Estado de orden invalido' })
     }
 
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      {
-        new: true,
-        runValidators: true,
-      },
-    )
+    const order = await Order.findById(req.params.id)
 
     if (!order) {
       return res.status(404).json({ message: 'Orden no encontrada' })
     }
 
+    const previousStatus = order.status
+    if (previousStatus === status) {
+      return res.json(order)
+    }
+
+    if (previousStatus === 'pending' && status !== 'pending') {
+      await releaseReservationForOrder(order.items)
+    }
+
+    if (previousStatus !== 'pending' && status === 'pending') {
+      await reReserveForPendingStatus(order.items)
+    }
+
+    order.status = status
+    await order.save()
+
     return res.json(order)
-  } catch {
+  } catch (error) {
+    if (error.message === 'PRODUCT_NOT_FOUND') {
+      return res.status(400).json({ message: 'Uno o mas productos no existen' })
+    }
+
+    if (error.message === 'INSUFFICIENT_STOCK') {
+      return res.status(409).json({ message: 'Stock insuficiente para devolver la orden a pendiente' })
+    }
+
+    if (error.message === 'INSUFFICIENT_RESERVED_STOCK') {
+      return res.status(409).json({ message: 'No hay suficiente stock reservado para esta orden' })
+    }
+
     return res.status(500).json({ message: 'No se pudo actualizar el estado de la orden' })
   }
 })
